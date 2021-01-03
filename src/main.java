@@ -1,12 +1,9 @@
-import javax.swing.border.EmptyBorder;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.Scanner;
+import java.util.*;
 
 public class Main {
 
 	public static final char[] LETTERS = {'-', 'A', 'B', 'C', 'D', 'E', '-'};
+	public static final String[] DIRECTION = {"ERROR", "North", "East", "South", "West"};
 	public static final boolean DEBUG = false;
 	public static final int THRESHOLD = 8;
 
@@ -127,7 +124,7 @@ public class Main {
 	}
 
 	// Make the decision based on moveEq
-	static void decide(int[][] moveEq, int[][] board) {
+	static void decide(int[][] moveEq, int[][] board, int[][] nextMove) {
 		int[][] coordinates = new int[4][2]; // coordinates of each ship
 		int x = 0; // iterator for each coordinates to save
 
@@ -228,9 +225,11 @@ public class Main {
 
 		if(board[maxRow][maxCol] > 0) canAttack = false;
 
+		boolean attacked = false;
 		if(maxMoveEq > THRESHOLD && canAttack) {
 			// attack that location
 			System.out.println("『[" + LETTERS[maxRow] + "-" + maxCol + "] に魚雷発射！』");
+			attacked = true;
 		} else {
 
 			int shipRow = coordinates[targetShip][0];
@@ -261,6 +260,11 @@ public class Main {
 				board[maxRow][maxCol] = board[shipRow][shipCol];
 				board[shipRow][shipCol] = 0;
 
+				// swap moveEq as well when moving ship
+				int temp = moveEq[shipRow][shipCol];
+				moveEq[shipRow][shipCol] = moveEq[maxCol][maxCol];
+				moveEq[maxCol][maxCol] = temp;
+
 				System.out.println("『潜水艦を" + dir + "に" + Math.abs(dist) + "マス移動！ 』");
 			} else {
 				for (int i = maxRow-1; i < maxRow+2; i++) {
@@ -268,11 +272,78 @@ public class Main {
 						if(board[i][j] == 0){
 							System.out.println("『[" + LETTERS[i] + "-" + j + "] に魚雷発射！』");
 							i = maxRow+2;
+							attacked = true;
 							break;
 						}
 					}
 				}
 			}
+		}
+
+		if(attacked) {
+			// TODO: do something attack blah blah
+			// Attacking enemy
+
+			// Convert input to position
+			int i = maxRow;
+			int j = maxCol;
+
+			//System.out.println("DEBUG: i: " + i + " j: " + j);
+
+			Scanner sc = new Scanner(System.in);
+			String res;
+
+			do {
+				System.out.println("反応は何だ？");
+				System.out.println("1. 命中");
+				System.out.println("2. 波高し");
+				System.out.println("3. ハズレ");
+				System.out.println("4. 命中 (撃沈)");
+				System.out.print("> ");
+				res = sc.nextLine();
+			} while(!res.matches("[1234]"));
+
+
+
+			switch (res) {
+				case "1": // 命中
+					// Set target to 20 when direct hit (attacking enemy)
+					nextMove[i][j] = 20;
+					break;
+				case "2": //波高し
+					nextMove[i][j] = 0; // Set target to 0 when near hit and increase surroundings (attacking enemy)
+					// --- nextMove Implementation for attacking
+					nextMove[i][j] = 0; // Set self to 0
+
+					// Increments
+					// corner -> 8, top & bot -> 5, normal -> 3
+
+					// Corner
+					cornerCheck(nextMove, i, j);
+					break;
+				case "3": //ハズレ
+					// Set target + surroundings to 0 when miss
+					for (int k = i-1; k <= i+1; k++) {
+						for (int l = j-1; l <= j+1; l++) {
+							nextMove[k][l] = 0;
+						}
+					}
+					break;
+				case "4":
+					nextMove[i][j] = 0;
+					break;
+				default:
+					break;
+			}
+
+			System.out.println("Attacked Enemy");
+			if(DEBUG) printArr("nextMove", nextMove);
+
+			int totalHp = total(board);
+			int numSub = _num(board);
+			moveEquation(moveEq, totalHp, numSub, nextMove);
+			if(DEBUG) printArr("nextMove", moveEq);
+			//sc.close();
 		}
 
 
@@ -351,185 +422,57 @@ public class Main {
 		Scanner sc = new Scanner(System.in);
 
 		int[][] allies = spawnShip();
-		int[][] enemies = spawnShip();
+		//int[][] enemies = spawnShip();
 
-		print(allies);
-		System.out.println("Input print, move, or attack");
+		while(true) {
+			print(allies);
+			System.out.println("Input the following action");
+			System.out.println("1. Attack");
+			System.out.println("2. Move");
+			System.out.println("3. Print");
+			System.out.print("> ");
 
-		while(sc.hasNextLine()){
+			String input = sc.nextLine();
 
-		    // print board and ask for input
-			System.out.println("Input print, move, or attack");
+			switch(input.toLowerCase()) {
+				case "attack":
+				case "1":
+					// --- target selection implementation
+					String target = "PLACEHOLDER";
 
-			//decide(moveEq, allies);
-			orderInput = sc.nextLine();
+					do {
+						System.out.println("Who got attacked?");
+						System.out.println("1. Ally");
+						System.out.println("2. Enemy");
+						System.out.print("> ");
 
-			if(orderInput.equals(order[0])){ // Print
-				print(allies);
-			}else if(orderInput.equals(order[1])){ // Move
-				System.out.print("Direction: ");
-				directionInput = sc.nextLine();
-
-				System.out.println("Direction: " + directionInput);
-				System.out.print("moveLength: ");
-				moveLengthInput = sc.nextLine();
-
-				System.out.println("moveLength = " + moveLengthInput);
-				System.out.println(orderInput + " " + directionInput + " " + moveLengthInput);
+						target = sc.nextLine();
+					}while(!target.equalsIgnoreCase("enemy") && !target.equalsIgnoreCase("ally") && !target.equals("1") && !target.equals("2"));
 
 
-				// --- nextMove implementation for move
-				int dist = Integer.parseInt(moveLengthInput);
+					//System.out.println("Attacking to: " + target);
 
-				for (int i = 0; i < nextMove.length; i++) {
-					for (int j = 0; j < nextMove[0].length; j++) {
+					String position = "PLACEHOLDER";
+					while(position.length() == 1 || position.length() != 2 && !(position.charAt(0) >= 'A' && position.charAt(0) <= 'E' && position.charAt(1) >= 1 && position.charAt(1) <= 5) ) {
 
-						if (nextMove[i][j] >= 12) {
-
-							if(nextMove[i][j] >= 20) nextMove[i][j] = 10;
-
-							if(directionInput.equals("North")) {
-								if(i-dist < 1) continue;
-								nextMove[i-dist][j] /= nextMove[i-dist][j] == -1 ? 1 : 2;
-							} else if(directionInput.equals("East")) {
-								if(j+dist > nextMove[0].length-2) continue;
-								nextMove[i][j+dist] /= nextMove[i][j+dist] == -1 ? 1 : 2;
-							} else if(directionInput.equals("South")) {
-							    if(i+dist > nextMove[0].length-2) continue;
-								nextMove[i+dist][j] /= nextMove[i+dist][j] == -1 ? 1 : 2;
-							} else if(directionInput.equals("West")) {
-								if(j-dist < 1) continue;
-								nextMove[i][j-dist] /= nextMove[i][j-dist] == -1 ? 1 : 2;
-							}
-						}
-					}
-				}
-
-				if(DEBUG) printArr("nextMove", nextMove);
-				
-				totalHp = total(allies);
-				numSub = _num(allies);
-				moveEquation(moveEq, totalHp, numSub, nextMove);
-				
-				if(DEBUG) printArr("moveEq", moveEq);
-				
-				// --- ends nextMove implementation for move
-
-				// decide after move
-				decide(moveEq, allies);
-			}else if(orderInput.equals(order[2])){ // Attack
-				// --- target selection implementation
-				System.out.print("Who (Enemy, Ally): ");
-				String target = sc.nextLine();
-
-				System.out.println("Attacking to: " + target);
-				// --- ends target selection implementation
-
-				System.out.print("To: ");
-				To = sc.nextLine();
-
-				System.out.println("To = " + To);
-				System.out.println(orderInput + " to " + To);
-
-				// Case our team got attacked
-				if(target.equalsIgnoreCase("Ally")){
-					// **Attacking our team
-					for(int i=1; i<6; i++){
-						for(int j=1; j<6; j++){
-
-							if(To.equals(panelName[i][j])){
-
-								// --- nextMove Implementation for attacking
-								nextMove[i][j] = 0; // Set self to 0
-
-								// Increments
-								// corner -> 8, top & bot -> 5, normal -> 3
-
-								// Corner
-								if(nextMove[i][j-1] == -1 && nextMove[i-1][j-1] == -1 && nextMove[i-1][j] == -1 || // top left
-										nextMove[i-1][j] == -1 && nextMove[i-1][j+1] == -1 && nextMove[i][j+1] == -1 || // top right
-										nextMove[i][j-1] == -1 && nextMove[i+1][j-1] == -1 && nextMove[i+1][j] == -1	|| // bot left
-										nextMove[i][j+1] == -1 && nextMove[i+1][j+1] == -1 && nextMove[i+1][j] == -1    // bot right
-								) {
-									for (int k = i-1; k <= i+1; k++) {
-										for (int l = j-1; l <= j+1; l++) {
-											if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 8;
-										}
-									}
-								}
-								// Top Bottom Left Right
-								else if(nextMove[i-1][j] == -1 || nextMove[i+1][j] == -1 || nextMove[i][j-1] == -1 || nextMove[i][j+1] == -1) {
-									for (int k = i-1; k <= i+1; k++) {
-										for (int l = j-1; l <= j+1; l++) {
-											if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 5;
-										}
-									}
-								}
-								// All other cases
-								else {
-									for (int k = i-1; k <= i+1; k++) {
-										for (int l = j-1; l <= j+1; l++) {
-											if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 3;
-										}
-									}
-								}
-
-								if(DEBUG) printArr("nextMove", nextMove);
-								// --- ends nextMove Implementation for attacking
-
-								if(allies[i][j] > 0){
-									allies[i][j]--;
-									System.out.println("命中！");
-
-									totalHp = total(allies);
-									numSub = _num(allies);
-									moveEquationAr(moveEq, i, j, totalHp, numSub, nextMove);
-
-									if(allies[i][j] == 0){
-										System.out.println("命中！撃沈！");
-									}
-								}else if(allies[i+1][j+1] > 0 || allies[i+1][j] > 0 || allies[i+1][j-1] > 0 || allies[i][j+1] > 0 ||
-										allies[i][j-1] > 0 || allies[i-1][j+1] > 0 || allies[i-1][j] > 0 || allies[i-1][j-1] > 0){ // > 0 means there exist an enemy
-									System.out.println("波高し！");
-									totalHp = total(allies);
-									numSub = _num(allies);
-									moveEquation(moveEq, totalHp, numSub, nextMove);
-								}else{
-									System.out.println("ハズレ！");
-									totalHp = total(allies);
-									numSub = _num(allies);
-									moveEquation(moveEq, totalHp, numSub, nextMove);
-								}
-
-								if(DEBUG) printArr("moveEq", moveEq);
-
-							}
-						}
+						System.out.println("At Position? (A1 - E5)");
+						System.out.print("> ");
+						position  = sc.nextLine();
 					}
 
-					// decide after getting attacked
-					decide(moveEq, allies);
-				} else {
-					// Attacking enemy
-					for(int i=1; i<6; i++){
-						for(int j=1; j<6; j++){
+					To = position;
 
-							if(To.equals(panelName[i][j])){
+					System.out.println("Attacking " + target + " At " + position);
+					// --- ends target selection implementation
 
-								System.out.println("反応は何だ？");
-								System.out.println("1. 命中");
-								System.out.println("2. 波高し");
-								System.out.println("3. ハズレ");
-								int res = sc.nextInt();
+					switch(target.toLowerCase()) {
+						case "ally":
+						case "1":
+							// **Attacking our team
+							for(int i=1; i<6; i++){
+								for(int j=1; j<6; j++){
 
-								switch (res) {
-									case 1: // 命中
-									// Set target to 20 when direct hit (attacking enemy)
-									nextMove[i][j] = 20;
-										break;
-									case 2: //波高し
-										// Set target to 0 when near hit and increase surroundings (attacking enemy)
-										nextMove[i][j] = 0;
+									if(To.equals(panelName[i][j])){
 
 										// --- nextMove Implementation for attacking
 										nextMove[i][j] = 0; // Set self to 0
@@ -538,66 +481,219 @@ public class Main {
 										// corner -> 8, top & bot -> 5, normal -> 3
 
 										// Corner
-										if(nextMove[i][j-1] == -1 && nextMove[i-1][j-1] == -1 && nextMove[i-1][j] == -1 || // top left
-												nextMove[i-1][j] == -1 && nextMove[i-1][j+1] == -1 && nextMove[i][j+1] == -1 || // top right
-												nextMove[i][j-1] == -1 && nextMove[i+1][j-1] == -1 && nextMove[i+1][j] == -1	|| // bot left
-												nextMove[i][j+1] == -1 && nextMove[i+1][j+1] == -1 && nextMove[i+1][j] == -1    // bot right
-										) {
-											for (int k = i-1; k <= i+1; k++) {
-												for (int l = j-1; l <= j+1; l++) {
-													if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 8;
-												}
+										cornerCheck(nextMove, i, j);
+
+										if(DEBUG) printArr("nextMove", nextMove);
+										// --- ends nextMove Implementation for attacking
+
+										if(allies[i][j] > 0){
+											allies[i][j]--;
+											System.out.println("命中！");
+
+											totalHp = total(allies);
+											numSub = _num(allies);
+											moveEquationAr(moveEq, i, j, totalHp, numSub, nextMove);
+
+											if(allies[i][j] == 0){
+												System.out.println("命中！撃沈！");
 											}
+										}else if(allies[i+1][j+1] > 0 || allies[i+1][j] > 0 || allies[i+1][j-1] > 0 || allies[i][j+1] > 0 ||
+												allies[i][j-1] > 0 || allies[i-1][j+1] > 0 || allies[i-1][j] > 0 || allies[i-1][j-1] > 0){ // > 0 means there exist an enemy
+											System.out.println("波高し！");
+											totalHp = total(allies);
+											numSub = _num(allies);
+											moveEquation(moveEq, totalHp, numSub, nextMove);
+										}else{
+											System.out.println("ハズレ！");
+											totalHp = total(allies);
+											numSub = _num(allies);
+											moveEquation(moveEq, totalHp, numSub, nextMove);
 										}
-										// Top Bottom Left Right
-										else if(nextMove[i-1][j] == -1 || nextMove[i+1][j] == -1 || nextMove[i][j-1] == -1 || nextMove[i][j+1] == -1) {
-											for (int k = i-1; k <= i+1; k++) {
-												for (int l = j-1; l <= j+1; l++) {
-													if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 5;
-												}
-											}
+
+										if(DEBUG) printArr("moveEq", moveEq);
+
+									}
+								}
+							}
+
+							// decide after getting attacked
+							decide(moveEq, allies, nextMove);
+							break;
+						case "enemy":
+						case "2":
+							// Attacking enemy
+
+							// Convert input to position
+							int i = position.charAt(0) - 'A' + 1;
+							int j = position.charAt(1) - '1' + 1;
+
+							//System.out.println("DEBUG: i: " + i + " j: " + j);
+
+							String res;
+
+							do {
+								System.out.println("反応は何だ？");
+								System.out.println("1. 命中");
+								System.out.println("2. 波高し");
+								System.out.println("3. ハズレ");
+								System.out.println("4. 命中 (撃沈)");
+								System.out.print("> ");
+								res = sc.nextLine();
+							} while(!res.matches("[1234]"));
+
+
+
+							switch (res) {
+								case "1": // 命中
+									// Set target to 20 when direct hit (attacking enemy)
+									nextMove[i][j] = 20;
+									break;
+								case "2": //波高し
+									nextMove[i][j] = 0; // Set target to 0 when near hit and increase surroundings (attacking enemy)
+									// --- nextMove Implementation for attacking
+									nextMove[i][j] = 0; // Set self to 0
+
+									// Increments
+									// corner -> 8, top & bot -> 5, normal -> 3
+
+									// Corner
+									cornerCheck(nextMove, i, j);
+									break;
+								case "3": //ハズレ
+									// Set target + surroundings to 0 when miss
+									for (int k = i-1; k <= i+1; k++) {
+										for (int l = j-1; l <= j+1; l++) {
+											nextMove[k][l] = 0;
 										}
-										// All other cases
-										else {
-											for (int k = i-1; k <= i+1; k++) {
-												for (int l = j-1; l <= j+1; l++) {
-													if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 3;
-												}
-											}
-										}
-										break;
-									case 3: //ハズレ
-										// Set target + surroundings to 0 when miss
-										for (int k = i-1; k <= i+1; k++) {
-											for (int l = j-1; l <= j+1; l++) {
-												nextMove[k][l] = 0;
-											}
-										}
-										break;
-									default:
-										break;
+									}
+									break;
+								case "4":
+									nextMove[i][j] = 0;
+									break;
+								default:
+									break;
+							}
+
+							System.out.println("Attacked Enemy");
+							if(DEBUG) printArr("nextMove", nextMove);
+
+							totalHp = total(allies);
+							numSub = _num(allies);
+							moveEquation(moveEq, totalHp, numSub, nextMove);
+							if(DEBUG) printArr("nextMove", moveEq);
+							break;
+					}
+					break;
+				case "move":
+				case "2":
+					System.out.println("Move to which direction?");
+					System.out.println("1. 北 North");
+					System.out.println("2. 東 East");
+					System.out.println("3. 南 South");
+					System.out.println("4. 西 West");
+					System.out.print("> ");
+
+					//System.out.print("Direction: ");
+					directionInput = sc.nextLine();
+					if(directionInput.length() == 1) {
+						directionInput = DIRECTION[Integer.parseInt(directionInput)]; // Convert Number to North...
+					}
+
+					//System.out.println("Direction: " + directionInput);
+					//System.out.print("moveLength: ");
+
+
+					moveLengthInput = "PLACEHOLDER";
+					while(!moveLengthInput.equals("1") && !moveLengthInput.equals("2") ) {
+						System.out.println("Length? (1-2)");
+						System.out.print("> ");
+						moveLengthInput = sc.nextLine();
+					}
+
+					//System.out.println("moveLength = " + moveLengthInput);
+					System.out.println("Enemy is moving " + directionInput + " by " + moveLengthInput + " space");
+
+					// --- nextMove implementation for move
+					int dist = Integer.parseInt(moveLengthInput);
+
+					for (int i = 0; i < nextMove.length; i++) {
+						for (int j = 0; j < nextMove[0].length; j++) {
+
+							if (nextMove[i][j] >= 12) {
+
+								if(nextMove[i][j] >= 20) nextMove[i][j] = 10;
+
+								if(directionInput.equalsIgnoreCase("North")) {
+									if(i-dist < 1) continue;
+									nextMove[i-dist][j] /= nextMove[i-dist][j] == -1 ? 1 : 2;
+								} else if(directionInput.equalsIgnoreCase("East")) {
+									if(j+dist > nextMove[0].length-2) continue;
+									nextMove[i][j+dist] /= nextMove[i][j+dist] == -1 ? 1 : 2;
+								} else if(directionInput.equalsIgnoreCase("South")) {
+									if(i+dist > nextMove[0].length-2) continue;
+									nextMove[i+dist][j] /= nextMove[i+dist][j] == -1 ? 1 : 2;
+								} else if(directionInput.equalsIgnoreCase("West")) {
+									if(j-dist < 1) continue;
+									nextMove[i][j-dist] /= nextMove[i][j-dist] == -1 ? 1 : 2;
 								}
 							}
 						}
 					}
 
-					System.out.println("Attacked Enemy");
 					if(DEBUG) printArr("nextMove", nextMove);
 
 					totalHp = total(allies);
 					numSub = _num(allies);
 					moveEquation(moveEq, totalHp, numSub, nextMove);
-					if(DEBUG) printArr("nextMove", moveEq);
-				}
 
+					if(DEBUG) printArr("moveEq", moveEq);
 
-			}else{
-				System.out.println("Error : Input proper order!");
+					// --- ends nextMove implementation for move
+
+					// decide after move
+					decide(moveEq, allies, nextMove);
+					break;
+				case "print":
+				case "p":
+				case "3":
+					print(allies);
+					break;
 			}
-			
-			System.out.println("Input print, move, or attack");
-        }  
+
+			if(input.equalsIgnoreCase("exit")) break;
+		}
+
 		sc.close();
+	}
+
+	private static void cornerCheck(int[][] nextMove, int i, int j) {
+		if(nextMove[i][j-1] == -1 && nextMove[i-1][j-1] == -1 && nextMove[i-1][j] == -1 || // top left
+				nextMove[i-1][j] == -1 && nextMove[i-1][j+1] == -1 && nextMove[i][j+1] == -1 || // top right
+				nextMove[i][j-1] == -1 && nextMove[i+1][j-1] == -1 && nextMove[i+1][j] == -1	|| // bot left
+				nextMove[i][j+1] == -1 && nextMove[i+1][j+1] == -1 && nextMove[i+1][j] == -1    // bot right
+		) {
+			for (int k = i-1; k <= i+1; k++) {
+				for (int l = j-1; l <= j+1; l++) {
+					if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 8;
+				}
+			}
+		}
+		// Top Bottom Left Right
+		else if(nextMove[i-1][j] == -1 || nextMove[i+1][j] == -1 || nextMove[i][j-1] == -1 || nextMove[i][j+1] == -1) {
+			for (int k = i-1; k <= i+1; k++) {
+				for (int l = j-1; l <= j+1; l++) {
+					if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 5;
+				}
+			}
+		}
+		// All other cases
+		else {
+			for (int k = i-1; k <= i+1; k++) {
+				for (int l = j-1; l <= j+1; l++) {
+					if(k != i || l != j) nextMove[k][l] += nextMove[k][l] == -1 ? 0 : 3;
+				}
+			}
+		}
 	}
 
 }
